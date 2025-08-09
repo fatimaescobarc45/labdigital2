@@ -1,0 +1,112 @@
+#include <Arduino.h>
+#include <stdint.h>
+#include <driver/ledc.h>
+
+int8_t bSelector  = 32; int8_t bBrillo = 35;
+int8_t bDerecha = 34; int8_t bIzquierda= 39;
+int8_t ledActual = 0;
+int8_t ledR = 22; int8_t ledG = 19; int8_t ledB = 17;
+int8_t leds[3] = {ledR, ledG, ledB};
+int8_t pinServo = 4;
+
+int8_t brilloLedR; int8_t brilloLedG; int8_t brilloLedB; int8_t brilloActual;
+uint16_t dutyCycles[4] = {(uint16_t)(0* 65535), (uint16_t)(0.3 * 65535), (uint16_t)(0.6 * 65535), 65535};
+int8_t posicionServo;
+
+uint32_t dutyCycle = 0;
+
+#define pwmChannel 0
+#define freqPWM 60
+#define resPWM 16 
+
+// Variables para antirrebote
+unsigned long ult_led = 0;
+unsigned long ult_brillo = 0;
+unsigned long ult_derecha = 0;
+unsigned long ult_izquierda = 0;
+const unsigned long t_rebote = 60; // tiempo antirrebote
+
+// put function declarations here:
+void ajustarBrillo(int led);
+int moverServo();
+void initPWM();
+
+void setup() {
+  // put your setup code here, to run once:
+  pinMode(bSelector, INPUT_PULLUP);
+  pinMode(bBrillo, INPUT_PULLUP);
+  pinMode(bIzquierda, INPUT_PULLUP);
+  pinMode(bDerecha, INPUT_PULLUP);
+
+
+  initPWM();
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  static bool yaRugio = HIGH;
+  
+  bool seleccionando = digitalRead(bSelector);
+  if (yaRugio == HIGH && seleccionando == LOW && (millis() - ult_led) > t_rebote) {
+    ledActual++;
+    ult_led = millis();
+  }
+  if (ledActual > 2) {
+    ledActual = 0;
+  }
+  yaRugio = seleccionando;
+
+  
+  ajustarBrillo(ledActual);
+
+  ledcWrite(0, dutyCycles[brilloLedR]);
+  ledcWrite(1, dutyCycles[brilloLedG]);
+  ledcWrite(2, dutyCycles[brilloLedB]);
+
+}
+
+// función de brillo de la led
+void ajustarBrillo(int led) {
+  static bool yaBrillo = HIGH;
+  bool ajuste = digitalRead(bBrillo);
+  if (yaBrillo == HIGH && ajuste == LOW && (millis() - ult_brillo) > t_rebote) {
+    switch (led) {
+      case 0:
+        brilloLedR++;
+        if (brilloLedR > 3) brilloLedR = 0;
+        break;
+      case 1:
+        brilloLedG++;
+        if (brilloLedG > 3) brilloLedG = 0;
+        break;
+      case 2:
+        brilloLedB++;
+        if (brilloLedB > 3) brilloLedB = 0;
+        break;
+    }
+    ult_brillo = millis();
+  }
+  yaBrillo = ajuste;
+}
+
+void initPWM(void){
+  // acá configuramos el PWM de la led roja
+  ledcSetup(0, freqPWM, resPWM);
+  ledcAttachPin(ledR, 0);
+  ledcWrite(0, 0);
+
+   // acá configuramos el PWM de la led verde
+  ledcSetup(1, freqPWM, resPWM);
+  ledcAttachPin(ledG, 1);
+  ledcWrite(1, 0);
+   // acá configuramos el PWM de la led azul
+  ledcSetup(2, freqPWM, resPWM);
+  ledcAttachPin(ledB, 2);
+  ledcWrite(2, 0);
+
+   // acá configuramos el PWM del servo
+  ledcSetup(3, freqPWM, resPWM);
+  ledcAttachPin(pinServo, 3);
+  ledcWrite(3, 0);
+}
